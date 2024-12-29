@@ -76,9 +76,6 @@ const UserlandHeader* Slot::userlandHeader() const {
   // Configure the MPU for the booted firmware
   Ion::Device::Board::bootloaderMPU();
 
-  // Deinitialize the backlight to prevent bugs when the firmware boots 
-  Ion::Backlight::shutdown();
-
   // Jump
   jump_to_firmware(kernelHeader()->stackPointer(), kernelHeader()->startPointer());
   for(;;);
