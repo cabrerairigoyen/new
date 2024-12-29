@@ -58,10 +58,8 @@ SECTIONS {
   } > FLASH
 
   .recovery_boot : {
-    . = ALIGN(4);
-    _recovery_boot_start = .;
+    . = ORIGIN(FLASH) + USERLAND_OFFSET + 0x100;
     KEEP(*(.recovery_boot));
-    _recovery_boot_end = .;
   } >FLASH
 
   .text : {

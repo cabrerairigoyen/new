@@ -18,7 +18,7 @@
 #endif
 
 extern "C" {
-  extern char _recovery_boot_start;
+  extern void recovery_start();
 }
 namespace Ion {
 extern char staticStorageArea[];
@@ -77,7 +77,16 @@ public:
     m_osType(OSType),
     m_upsilonMagicFooter(UpsilonMagic),
     m_upsilonExtraMagicHeader(UpsilonExtraMagic),
-    m_recoveryAddress(((uint32_t)&_recovery_boot_start) + 1),
+    // FIXME: Since GCC 13, we can't longer store a pointer to a function in the
+    // class initialization. I don't know if it's a problem in GCC or our code,
+    // but it's a bit suspicious as the whole class is blank (0x00) in the
+    // binary with the data available nowhere else (searching for the username
+    // returns nothing).
+    // As a workaround, we fixed the address of recovery_start in flash using
+    // LD script (ion/src/device/bootloader/bootloader_common.ld).
+    // This line works on GCC 12
+    // m_recoveryAddress((uint32_t)recovery_start + 1),
+    m_recoveryAddress(0x90010080 + 1),
     m_extraVersion(1),
     m_upsilonExtraMagicFooter(UpsilonExtraMagic) { }
 

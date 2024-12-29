@@ -138,7 +138,7 @@ void __attribute__((noinline)) start() {
 void __attribute__((noinline)) __attribute__((section(".recovery_boot"))) __attribute__((used)) recovery_start() {
   // Here we are in the recovery boot.
   Ion::Device::Board::initFPU();
-  
+
   bool is_recoverying = Ion::Device::BootloaderSharedData::sharedBootloaderData()->storageAddress() != 0;
 
   if (is_recoverying) {
@@ -146,7 +146,7 @@ void __attribute__((noinline)) __attribute__((section(".recovery_boot"))) __attr
     uint32_t size = Ion::Device::BootloaderSharedData::sharedBootloaderData()->storageSize();
 
     size_t storageSize = (&_static_storage_end - &_static_storage_start);
-    
+
     memcpy(&_static_storage_start, (void*)address, size);
 
     size_t dataSectionLength = (&_data_section_end_ram - &_data_section_start_ram);
@@ -160,7 +160,7 @@ void __attribute__((noinline)) __attribute__((section(".recovery_boot"))) __attr
     size_t bssSectionLength = (&_bss_section_end_ram - &_bss_section_start_ram);
     memset(&_bss_section_start_ram, 0, bssSectionLength);
   }
-  
+
   if (&_init_array_start != &_init_array_end) {
     abort();
   }

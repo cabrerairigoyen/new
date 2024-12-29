@@ -44,7 +44,7 @@ const bool UserlandHeader::hasUpsilonExtras() const {
   return m_upsilonExtraMagicHeader == UpsilonExtraMagic && m_upsilonExtraMagicFooter == UpsilonExtraMagic;
 }
 
-const uint16_t UserlandHeader::getExtraVersion() const {
+const uint32_t UserlandHeader::getExtraVersion() const {
   return m_extraVersion;
 }
 
