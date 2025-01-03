@@ -58,7 +58,7 @@ SECTIONS {
   } > FLASH
 
   .recovery_boot : {
-    . = ORIGIN(FLASH) + USERLAND_OFFSET + 0x100;
+    . = ORIGIN(FLASH) + USERLAND_OFFSET + 0x80;
     KEEP(*(.recovery_boot));
   } >FLASH
 
