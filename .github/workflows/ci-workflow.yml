@@ -136,7 +136,9 @@ jobs:
   n0100:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config
+      - run: |
+          sudo apt-get update
+          sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config
       - uses: numworks/setup-arm-toolchain@2020-q2
       - uses: actions/checkout@v4
         with:
@@ -189,7 +191,9 @@ jobs:
   n0110:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config
+      - run: |
+          sudo apt-get update
+          sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config
       - uses: numworks/setup-arm-toolchain@2020-q2
       - uses: actions/checkout@v4
         with:
@@ -224,7 +228,9 @@ jobs:
   bootloader:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config # gcc-arm-none-eabi
+      - run: |
+          sudo apt-get update
+          sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config
       - uses: numworks/setup-arm-toolchain@2022-08
       - uses: actions/checkout@v4
         with:
@@ -298,7 +304,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-      - run: sudo apt-get install libfreetype-dev libpng-dev
       - run: make -j2 PLATFORM=simulator TARGET=web
       - run: make -j2 PLATFORM=simulator TARGET=web test.js
       - run: node output/release/simulator/web/test.js --headless
@@ -321,7 +326,9 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config libxtst-dev
+      - run: |
+          sudo apt update
+          sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config libxtst-dev
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
