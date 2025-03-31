@@ -108,7 +108,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-      - run: sudo apt-get install imagemagick libfreetype-dev libpng-dev
+      - run: |
+          sudo apt-get update
+          sudo apt-get install imagemagick libfreetype-dev libpng-dev
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -306,7 +308,7 @@ jobs:
           submodules: 'recursive'
       # Install the Linux toolchin to avoid dependancies issues, but maybe only libpng is needed
       - run: |
-          sudo apt update
+          sudo apt-get update
           sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config libxtst-dev
       - run: make -j2 PLATFORM=simulator TARGET=web
       - run: make -j2 PLATFORM=simulator TARGET=web test.js
@@ -331,7 +333,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          sudo apt update
+          sudo apt-get update
           sudo apt-get install build-essential imagemagick libfreetype6-dev libjpeg-dev libpng-dev pkg-config libxtst-dev
       - uses: actions/checkout@v4
         with:
