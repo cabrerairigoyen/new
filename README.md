@@ -181,31 +181,44 @@ This one allows virtual machines developed by Microsoft.
 ```powershell
 wsl --set-default-version 2
 ```
+
 5. Download [Ubuntu](https://www.microsoft.com/store/apps/9n6svws3rx71) from Microsoft store.
 
 WSL is now installed.
 
+<!-- TODO: Test if `wsl --install` works better, and if WSL2 has not became the
+default -->
+
 6. Then install GCC cross compiler for ARM.
+
 ```bash
-apt-get install build-essential git imagemagick libx11-dev libxext-dev libfreetype6-dev libpng-dev libjpeg-dev pkg-config gcc-arm-none-eabi binutils-arm-none-eabi
+sudo apt-get update
+sudo apt-get install build-essential git imagemagick libx11-dev libxext-dev libfreetype6-dev libpng-dev libjpeg-dev pkg-config gcc-arm-none-eabi binutils-arm-none-eabi
 ```
 
 ### Usbipd installation to connect your calculator
-If you want to connect to the calculator, you have to connect to install this [tool](https://github.com/dorssel/usbipd-win/releases/download/v1.3.0/usbipd-win_1.3.0.msi). This will allow you to connect WSL to the calculator through internet. Follow the on screen information to install.
+
+If you want to connect to the calculator, you have to connect to install this
+[tool](https://github.com/dorssel/usbipd-win/releases/download/v5.0.0/usbipd-win_5.0.0_x64.msi).
+This will allow you to connect WSL to the calculator through internet. Follow
+the on screen information to install.
+
 #### Ubuntu
+
 1. In a WSL Ubuntu command prompt, type:
+
 ```bash
-sudo apt install linux-tools-5.4.0-77-generic hwdata
+sudo apt install linux-tools-generic hwdata
 ```
 
-2. Edit /etc/sudoers so that root can find the usbip command. On Ubuntu, run this command.
+<!-- 2. Edit /etc/sudoers so that root can find the usbip command. On Ubuntu, run this command.
 
 ```bash
 sudo visudo
 ```
 
 3. Add `/usr/lib/linux-tools/5.4.0-77-generic` to the beginning of secure_path. After editing, the line should look similar to this.
-`Defaults secure_path="/usr/lib/linux-tools/5.4.0-77-generic:/usr/local/sbin:..."`
+`Defaults secure_path="/usr/lib/linux-tools/5.4.0-77-generic:/usr/local/sbin:..."` -->
 
 #### Debian
 
@@ -222,14 +235,16 @@ And that's all for installation and set up.
 1. Open an admin PowerShell and type:
 
 ```powershell
-  usbipd wsl list
+usbipd list
 ```
 
 This will list your USB devices connected. Look at the BUSID column and remember the one for your calculator (it should be called "Numworks Calculator").
 2. Now run this command replacing `<BUSID>` by your calculator's USB port id:
 
 ```powershell
-usbipd wsl attach --busid <BUSID>
+usbipd bind --busid <BUSID>
+usbipd attach --wsl --busid <BUSID>
+
 ```
 
 It will ask you to type your WSL's password and will connect your calculator to WSL.
@@ -432,7 +447,7 @@ You can then put epsilon.3dsx on a SD card to run it from the HBC or use 3dslink
 
 <details>
   <summary><b>Casio fx-CG-series Port</b></summary>
-  
+
 First, install gint and fxsdk along with a cross compiler for the calculator. There are instructions for this (in French, but Google Translate works well enough) [here](https://www.planet-casio.com/Fr/forums/topic16614-last-giteapc-installer-et-mettre-a-jour-automatiquement-des-projets-gitea.html).
 
 Next:

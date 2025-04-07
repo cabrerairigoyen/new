@@ -29,7 +29,7 @@ Upsilon est un fork d'Omega, un fork d'Epsilon, l'OS de NumWorks tournant sur le
 ### Site web
 
 Rendez-vous sur le [site d'Upsilon](https://getupsilon.web.app/) à la section "Installer".
-Si votre calculatrice est reconnue, qu'elle contient une version d'Epsilon inférieure à 16 et que votre navigateur accepte WebUSB, la page vous proposera d'installer Upsilon.  
+Si votre calculatrice est reconnue, qu'elle contient une version d'Epsilon inférieure à 16 et que votre navigateur accepte WebUSB, la page vous proposera d'installer Upsilon.
 Ne débranchez votre calculatrice qu'une fois l'installation terminée.
 
 ### Manuelle
@@ -187,30 +187,32 @@ wsl --set-default-version 2
 WSL est maintenant installé.
 
 6. Installez maintenant la version pour ARM de GCC.
+
 ```bash
+sudo apt-get update
 sudo apt-get install build-essential git imagemagick libx11-dev libxext-dev libfreetype6-dev libpng-dev libjpeg-dev pkg-config gcc-arm-none-eabi binutils-arm-none-eabi
 ```
 
 ### Installation d'usbipd pour connecter la calculatrice à WSL (facultatif)
 
-Pour connecter la calculatrice, il faut installer cet [outil](https://github.com/dorssel/usbipd-win/releases/download/v1.3.0/usbipd-win_1.3.0.msi). Il permet de connecter des périphériques par Internet. Suivez les instructions pour l'installer.
+Pour connecter la calculatrice, il faut installer cet [outil](hthttps://github.com/dorssel/usbipd-win/releases/download/v5.0.0/usbipd-win_5.0.0_x64.msi). Il permet de connecter des périphériques par Internet. Suivez les instructions pour l'installer.
 
 #### Ubuntu
 
 1. Dans un terminal WSL Ubuntu, tapez :
 
 ```bash
-sudo apt install linux-tools-5.4.0-77-generic hwdata
+sudo apt install linux-tools-generic hwdata
 ```
 
-2. Editez /etc/sudoers pour que l'on puisse utiliser la commande usbip. Sur Ubuntu, cela est fait de cette manière :
+<!-- 2. Editez /etc/sudoers pour que l'on puisse utiliser la commande usbip. Sur Ubuntu, cela est fait de cette manière :
 
 ```bash
 sudo visudo
 ```
 
 3. Ajoutez `/usr/lib/linux-tools/5.4.0-77-generic` au début du secure_path. Après édition, la ligne devrait ressembler à:
-`Defaults secure_path="/usr/lib/linux-tools/5.4.0-77-generic:/usr/local/sbin:..."`
+`Defaults secure_path="/usr/lib/linux-tools/5.4.0-77-generic:/usr/local/sbin:..."` -->
 
 #### Debian
 
@@ -225,7 +227,7 @@ sudo apt install usbip hwdata usbutils
 1. Ouvrez à nouveau un PowerShell en mode administrateur et tapez :
 
 ```powershell
-  usbipd wsl list
+usbipd list
 ```
 
 Ceci va lister les périphériques USB connectés à l'ordinateur. Regardez le BUSID de votre "Numworks Calculator".
@@ -233,7 +235,8 @@ Ceci va lister les périphériques USB connectés à l'ordinateur. Regardez le B
 2. Maintenant, lancez cette commande en remplaçant <BUSID> par celui de votre calculatrice :
 
 ```powershell
-usbipd wsl attach --busid <BUSID>
+usbipd bind --busid <BUSID>
+usbipd attach --wsl --busid <BUSID>
 ```
 
 Le mot de passe de votre machine WSL vous sera demandé.
