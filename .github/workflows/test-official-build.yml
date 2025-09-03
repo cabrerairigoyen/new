@@ -1,0 +1,124 @@
+name: 🧮 Test Official Upsilon Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Username for build (max 15 chars)'
+        required: false
+        default: 'PiStreamTest'
+
+jobs:
+  test-official-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Official Upsilon Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: 📦 Install Build Dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          gcc-arm-none-eabi \
+          build-essential \
+          imagemagick \
+          libfreetype6-dev \
+          libjpeg-dev \
+          libpng-dev \
+          pkg-config \
+          python3 \
+          python3-pip
+        
+        echo "✅ Dependencies installed successfully"
+        
+    - name: 🔧 Verify Upsilon Configuration
+      run: |
+        echo "📋 Build configuration:"
+        cat build/config.mak
+        echo ""
+        echo "📁 Apps available:"
+        ls -la apps/
+        echo ""
+        echo "🔧 libaxx configuration:"
+        cat libaxx/Makefile
+        
+    - name: 🏗️ Build Official Upsilon Firmware
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamTest' }}"
+        echo "🚀 Building Official Upsilon firmware"
+        echo "👤 Username: $USERNAME"
+        
+        echo "🧹 Cleaning previous build..."
+        make clean
+        
+        echo "🚀 Starting build with verbose output..."
+        set -e
+        make OMEGA_USERNAME="$USERNAME" -j$(nproc) 2>&1 | tee build.log
+        
+        echo "🔍 Checking build results..."
+        find output/ -name "*.bin" -o -name "*.elf" 2>/dev/null || echo "No firmware files found"
+        
+        # Check if build succeeded
+        if [ -f "output/device/n0110/release/epsilon.bin" ]; then
+          echo "✅ Official firmware build successful!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/epsilon.bin)
+          echo "📦 Firmware size: $FILESIZE bytes"
+          ls -la output/device/n0110/release/epsilon.bin
+        else
+          echo "❌ Official firmware build failed!"
+          echo "📋 Build log (last 100 lines):"
+          tail -100 build.log
+          exit 1
+        fi
+        
+    - name: 📦 Build Binpack
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamTest' }}"
+        echo "📦 Building binpack for WebDFU..."
+        
+        make OMEGA_USERNAME="$USERNAME" binpack -j$(nproc) 2>&1 | tee binpack.log
+        
+        # Check if binpack build succeeded
+        if [ -f "output/device/n0110/release/binpack.bin" ]; then
+          echo "✅ Binpack build successful!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/binpack.bin)
+          echo "📦 Binpack size: $FILESIZE bytes"
+          ls -la output/device/n0110/release/binpack.bin
+        else
+          echo "❌ Binpack build failed!"
+          echo "📋 Binpack log (last 100 lines):"
+          tail -100 binpack.log
+          exit 1
+        fi
+        
+    - name: 📁 Upload Official Upsilon Firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: official-upsilon-${{ github.event.inputs.username || 'PiStreamTest' }}-${{ github.run_number }}
+        path: |
+          output/device/n0110/release/epsilon.bin
+          output/device/n0110/release/binpack.bin
+          build.log
+          binpack.log
+        retention-days: 7
+        
+    - name: 🎉 Official Build Summary
+      run: |
+        echo "🎊 Official Upsilon Firmware Build Complete!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "📦 Generated Files:"
+        ls -la output/device/n0110/release/*.bin
+        echo ""
+        echo "📋 File Sizes:"
+        du -h output/device/n0110/release/*.bin
+        echo ""
+        echo "✅ Official Upsilon apps included:"
+        echo "  - calculation, graph, rpn, code, statistics"
+        echo "  - probability, solver, atomic, sequence" 
+        echo "  - regression, reader, settings, external"
+        echo ""
+        echo "🔗 Next: Add Pi Stream app to this working base"
