@@ -2,6 +2,13 @@
 #include <assert.h>
 #include <string.h>
 
+// Declaraciones externas para funciones de string en toolchain embebido
+extern "C" {
+    char *strcpy(char *dest, const char *src);
+    char *strstr(const char *haystack, const char *needle);
+    size_t strlen(const char *s);
+}
+
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
 
