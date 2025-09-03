@@ -1,7 +1,6 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
-#include <escher/pane.h>
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
@@ -66,7 +65,7 @@ constexpr static int USARTDIVValue = 833;
 namespace PiStream {
 
 PiStreamController::PiStreamController(Responder * parentResponder) :
-  StackViewController(parentResponder, &m_scrollableTextView, Pane::None),
+  StackViewController(parentResponder, &m_scrollableTextView),
   m_textView(KDFont::SmallFont),
   m_scrollableTextView(parentResponder, &m_textView, nullptr),
   m_lastPollTime(0)
