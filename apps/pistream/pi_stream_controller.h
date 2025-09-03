@@ -14,7 +14,7 @@
 
 namespace PiStream {
 
-class PiStreamController : public StackViewController, public AlternateEmptyViewDelegate {
+class PiStreamController : public ViewController, public AlternateEmptyViewDelegate {
 public:
   PiStreamController(Responder * parentResponder);
   const char * title() override { return "Pi Stream Display"; }
@@ -23,6 +23,7 @@ public:
 
 private:
   void pollUART();
+  void processReceivedData(const char * data);
   void appendToBuffer(char c);
   void processBuffer();
   void appendText(const char * text);

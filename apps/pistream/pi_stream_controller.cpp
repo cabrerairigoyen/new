@@ -1,6 +1,7 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
+#include <cstring>
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
@@ -37,9 +38,9 @@ typedef struct {
     volatile uint32_t AFR[2];
 } GPIO_TypeDef;
 
-// Punteros a periféricos con reinterpret_cast explícito
-#define USART6 (reinterpret_cast<USART_TypeDef *>(USART6_BASE))
-#define GPIOC  (reinterpret_cast<GPIO_TypeDef *>(GPIOC_BASE))
+// Punteros a periféricos (sin reinterpret_cast en define para constexpr)
+#define USART6_BASE_ADDR (USART6_BASE)
+#define GPIOC_BASE_ADDR  (GPIOC_BASE)
 
 // Configuración específica para n0110 UART GPIO
 namespace Ion {
@@ -47,8 +48,10 @@ namespace Device {
 namespace Console {
 namespace Config {
 
-// Configuración para USART6 en n0110
-constexpr static USART_TypeDef* Port = USART6;
+// Punteros a registros (definidos en runtime, no constexpr)
+static USART_TypeDef* Port = reinterpret_cast<USART_TypeDef*>(USART6_BASE);
+static GPIO_TypeDef* GPIOPort = reinterpret_cast<GPIO_TypeDef*>(GPIOC_BASE);
+
 constexpr static uint32_t RxPin = 7;  // PC7
 constexpr static uint32_t TxPin = 6;  // PC6
 constexpr static uint32_t AlternateFunction = 8;  // AF8
@@ -65,12 +68,13 @@ constexpr static int USARTDIVValue = 833;
 namespace PiStream {
 
 PiStreamController::PiStreamController(Responder * parentResponder) :
-  StackViewController(parentResponder, &m_scrollableTextView),
+  ViewController(parentResponder),
   m_textView(KDFont::SmallFont),
   m_scrollableTextView(parentResponder, &m_textView, nullptr),
   m_lastPollTime(0)
 {
   m_buffer[0] = 0;
+  // StackViewController setup moved to viewWillAppear
 }
 
 void PiStreamController::viewWillAppear() {
