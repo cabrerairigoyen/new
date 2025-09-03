@@ -11,9 +11,9 @@ namespace PiStream {
 PiStreamController::PiStreamController(Responder * parentResponder) :
   StackViewController(parentResponder, &m_scrollableTextView, Pane::None),
   m_scrollableTextView(&m_textView),
+  m_textView(KDFont::SmallFont),
   m_lastPollTime(0)
 {
-  m_textView.setFont(KDFont::SmallFont);
   m_buffer[0] = 0;
 }
 
