@@ -2,11 +2,73 @@
 #include <assert.h>
 #include <string.h>
 
-// Declaraciones externas para funciones de string en toolchain embebido
-extern "C" {
-    char *strcpy(char *dest, const char *src);
-    char *strstr(const char *haystack, const char *needle);
-    size_t strlen(const char *s);
+// Implementaciones de funciones de string para toolchain embebido
+// (ya que no están disponibles en la librería estándar)
+
+// #include <cstring>  // No disponible en toolchain embebido
+
+// Implementación simple de strcpy
+char *strcpy(char *dest, const char *src) {
+    char *d = dest;
+    while ((*d++ = *src++) != '\0');
+    return dest;
+}
+
+// Implementación simple de memcpy
+void *memcpy(void *dest, const void *src, size_t n) {
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+    while (n--) *d++ = *s++;
+    return dest;
+}
+
+// Implementación simple de memmove
+void *memmove(void *dest, const void *src, size_t n) {
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+    if (d < s) {
+        while (n--) *d++ = *s++;
+    } else {
+        d += n;
+        s += n;
+        while (n--) *--d = *--s;
+    }
+    return dest;
+}
+
+// Implementación simple de strstr
+char *strstr(const char *haystack, const char *needle) {
+    if (!*needle) return (char *)haystack;
+
+    for (const char *h = haystack; *h; ++h) {
+        const char *h_iter = h;
+        const char *n_iter = needle;
+
+        while (*h_iter && *n_iter && *h_iter == *n_iter) {
+            ++h_iter;
+            ++n_iter;
+        }
+
+        if (!*n_iter) return (char *)h;
+    }
+
+    return nullptr;
+}
+
+// Implementación simple de strchr
+char *strchr(const char *s, int c) {
+    while (*s) {
+        if (*s == (char)c) return (char *)s;
+        ++s;
+    }
+    return (c == '\0') ? (char *)s : nullptr;
+}
+
+// strlen ya debería estar disponible, pero por si acaso
+size_t my_strlen(const char *s) {
+    size_t len = 0;
+    while (*s++) ++len;
+    return len;
 }
 
 // Para n0110 necesitamos usar UART GPIO directamente
@@ -147,14 +209,15 @@ void PiStreamController::pollUART() {
 
 void PiStreamController::processReceivedData(const char * data) {
   // Copiar datos al buffer principal
-  size_t len = strlen(m_buffer);
-  if (len < sizeof(m_buffer) - strlen(data) - 1) {
+  size_t len = my_strlen(m_buffer);
+  size_t data_len = my_strlen(data);
+  if (len < sizeof(m_buffer) - data_len - 1) {
     strcpy(m_buffer + len, data);
-    strcpy(m_buffer + len + strlen(data), "\n");
+    strcpy(m_buffer + len + data_len, "\n");
   } else {
     // Buffer lleno, hacer scroll
-    memmove(m_buffer, m_buffer + strlen(data) + 1, sizeof(m_buffer) - strlen(data) - 1);
-    strcpy(m_buffer + sizeof(m_buffer) - strlen(data) - 2, data);
+    memmove(m_buffer, m_buffer + data_len + 1, sizeof(m_buffer) - data_len - 1);
+    strcpy(m_buffer + sizeof(m_buffer) - data_len - 2, data);
     strcpy(m_buffer + sizeof(m_buffer) - 2, "\n");
   }
 
@@ -184,7 +247,7 @@ void PiStreamController::processReceivedData(const char * data) {
 }
 
 void PiStreamController::appendToBuffer(char c) {
-  size_t len = strlen(m_buffer);
+  size_t len = my_strlen(m_buffer);
   if (len < sizeof(m_buffer) - 1) {
     m_buffer[len] = c;
     m_buffer[len + 1] = 0;
@@ -216,7 +279,7 @@ void PiStreamController::processBuffer() {
         appendText(start);
       }
       // Shift buffer past processed part
-      memmove(m_buffer, end + 2, strlen(end + 2) + 1);
+      memmove(m_buffer, end + 2, my_strlen(end + 2) + 1);
       return;
     }
   }
@@ -225,7 +288,7 @@ void PiStreamController::processBuffer() {
   if (nl) {
     *nl = 0;
     appendText(m_buffer);
-    memmove(m_buffer, nl + 1, strlen(nl + 1) + 1);
+    memmove(m_buffer, nl + 1, my_strlen(nl + 1) + 1);
   }
 }
 
