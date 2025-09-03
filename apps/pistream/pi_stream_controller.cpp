@@ -4,7 +4,7 @@
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Incluimos las definiciones necesarias para acceder a USART6
-#include <ion/device/shared/drivers/config/console.h>
+#include <ion/src/device/n0110/drivers/config/console.h>
 
 namespace PiStream {
 
