@@ -1,7 +1,6 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
-#include <cstring>
 #include <escher/pane.h>
 
 // Para n0110 necesitamos usar UART GPIO directamente
