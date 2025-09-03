@@ -36,16 +36,6 @@ App::App(Snapshot * snapshot) :
   m_stackViewController.push(&m_piStreamController);
 }
 
-int App::numberOfTimers() {
-  return 0;
-}
 
-I18n::Message App::message() {
-  return I18n::Message::Default;
-}
-
-void * App::frameBuffer() {
-  return nullptr;
-}
 
 }
