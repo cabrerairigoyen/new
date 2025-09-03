@@ -6,7 +6,9 @@
 #include <ion/timing.h>
 #include <ion/console.h>
 #include <escher/expression_view.h>
-#include <poincare.h>
+#include <poincare/expression.h>
+#include <poincare/layout.h>
+#include <poincare/preferences.h>
 
 namespace PiStream {
 
