@@ -1,6 +1,8 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
+#include <cstring>
+#include <escher/pane.h>
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
@@ -37,9 +39,9 @@ typedef struct {
     volatile uint32_t AFR[2];
 } GPIO_TypeDef;
 
-// Punteros a periféricos
-#define USART6 ((USART_TypeDef *)USART6_BASE)
-#define GPIOC  ((GPIO_TypeDef *)GPIOC_BASE)
+// Punteros a periféricos con reinterpret_cast explícito
+#define USART6 (reinterpret_cast<USART_TypeDef *>(USART6_BASE))
+#define GPIOC  (reinterpret_cast<GPIO_TypeDef *>(GPIOC_BASE))
 
 // Configuración específica para n0110 UART GPIO
 namespace Ion {
@@ -66,8 +68,8 @@ namespace PiStream {
 
 PiStreamController::PiStreamController(Responder * parentResponder) :
   StackViewController(parentResponder, &m_scrollableTextView, Pane::None),
-  m_scrollableTextView(&m_textView),
   m_textView(KDFont::SmallFont),
+  m_scrollableTextView(parentResponder, &m_textView, nullptr),
   m_lastPollTime(0)
 {
   m_buffer[0] = 0;
@@ -78,16 +80,14 @@ void PiStreamController::viewWillAppear() {
   m_textView.setText(m_buffer);
   m_lastPollTime = Ion::Timing::millis();
 
-  // Clear stack and push initial views
-  popAll();
-  push(&m_scrollableTextView);
-
   // Mostrar mensaje inicial
   m_textView.setText("Pi Stream v2 UART GPIO\n\nConecte Raspberry Pi y presione OK");
+
+  ViewController::viewWillAppear();
 }
 
 bool PiStreamController::handleEvent(Ion::Events::Event event) {
-  if (event == Ion::Events::Event::OK) {
+  if (event == Ion::Events::OK) {
     // Activar/desactivar UART
     pollUART();
     return true;
@@ -106,7 +106,7 @@ void PiStreamController::pollUART() {
 
   // Para n0110: Usar UART GPIO directamente via configuración independiente
   // Check if receive data register is not empty (RXNE flag en bit 5 del ISR)
-  bool dataAvailable = (Config::Port->ISR & (1 << 5)) != 0;
+  bool dataAvailable = (Ion::Device::Console::Config::Port->ISR & (1 << 5)) != 0;
 
   if (dataAvailable) {
     // Read available characters (non-blocking)
@@ -114,8 +114,8 @@ void PiStreamController::pollUART() {
     int charCount = 0;
 
     // Read all available characters without blocking
-    while ((Config::Port->ISR & (1 << 5)) && charCount < 255) {
-      char c = (char)(Config::Port->RDR & 0xFF);
+    while ((Ion::Device::Console::Config::Port->ISR & (1 << 5)) && charCount < 255) {
+      char c = (char)(Ion::Device::Console::Config::Port->RDR & 0xFF);
 
       if (c == '\n' || c == '\r') {
         if (charCount > 0) {
@@ -171,11 +171,11 @@ void PiStreamController::processReceivedData(const char * data) {
 
   // No LaTeX found, just update text display
   m_textView.setText(m_buffer);
-  m_scrollableTextView.scrollToBottom();
+  // ScrollableView doesn't have scrollToBottom() method
 }
 
 void PiStreamController::appendToBuffer(char c) {
-  int len = strlen(m_buffer);
+  size_t len = strlen(m_buffer);
   if (len < sizeof(m_buffer) - 1) {
     m_buffer[len] = c;
     m_buffer[len + 1] = 0;
@@ -197,10 +197,11 @@ void PiStreamController::processBuffer() {
       Poincare::Expression expr = Poincare::Expression::Parse(start + 2, nullptr);
       if (!expr.isUninitialized()) {
         // Render math using proper ExpressionView
-        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, Poincare::Preferences::ComplexFormat::Real);
+        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, 7); // 7 significant digits
         m_expressionView.setLayout(layout);
-        push(&m_expressionView);
-        return; // Don't append as text
+        // For now, just append as text since we can't push ExpressionView directly
+        appendText(start + 2);
+        return; // Don't append as text again
       } else {
         // Invalid: Treat as text
         appendText(start);
@@ -223,7 +224,7 @@ void PiStreamController::appendText(const char * text) {
   // Note: TextView text handling might need different approach
   // This is a simplified version - actual implementation may need buffer management
   m_textView.setText(text);
-  m_scrollableTextView.scrollToBottom();
+  // ScrollableView doesn't have scrollToBottom() method
 }
 
 View * PiStreamController::emptyView() {
