@@ -1,5 +1,5 @@
 #include "app.h"
-#include "pi_stream_icon.h"
+// #include "pi_stream_icon.h"  // Archivo no generado
 #include <apps/apps_container.h>
 #include <apps/i18n.h>
 
@@ -14,7 +14,7 @@ I18n::Message App::Descriptor::upperName() {
 }
 
 const Image * App::Descriptor::icon() {
-  return ImageStore::PiStreamIcon;
+  return nullptr; // Temporal: sin icono
 }
 
 App * App::Snapshot::unpack(Container * container) {
