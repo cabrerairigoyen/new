@@ -1,0 +1,72 @@
+name: 🐳 Build with Docker (Fixed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Username (max 15 chars)'
+        required: false
+        default: 'DockerTest'
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🏗️ Build Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile
+        push: false
+        tags: upsilon-builder:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: 🚀 Build Upsilon in Docker
+      run: |
+        echo "🐳 Building Upsilon with Docker..."
+        USERNAME="${{ github.event.inputs.username || 'DockerTest' }}"
+
+        # Run the build script in Docker
+        docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace \
+          upsilon-builder:latest \
+          /usr/local/bin/build \
+          https://github.com/UpsilonNumworks/Upsilon.git \
+          upsilon-dev \
+          MODEL=n0110 \
+          "OMEGA_USERNAME=$USERNAME" \
+          ""
+
+    - name: 🔍 Check Build Results
+      run: |
+        echo "=== CHECKING BUILD OUTPUT ==="
+        if [ -d "output" ]; then
+          echo "✅ Output directory exists"
+          find output/ -name "*.bin" -o -name "*.elf" 2>/dev/null | head -10
+        else
+          echo "❌ No output directory found"
+          ls -la
+        fi
+
+    - name: 📁 Upload Docker Build Artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: docker-upsilon-${{ github.run_number }}
+        path: |
+          output/device/n0110/release/epsilon.bin
+          output/device/n0110/release/binpack.bin
+          output/device/n0110/release/epsilon.onboarding.bin
+        if-no-files-found: ignore
+        retention-days: 7

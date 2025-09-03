@@ -1,0 +1,83 @@
+name: 🧮 Build Pi Stream n0110 Only
+
+on:
+  push:
+    branches: [ upsilon-dev, main ]
+    paths:
+      - 'apps/pistream/**'
+      - 'build/config.mak'
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Username (max 15 chars)'
+        required: false
+        default: 'PiStreamV2'
+
+jobs:
+  build-n0110:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: 📦 Install Dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          gcc-arm-none-eabi \
+          build-essential \
+          imagemagick \
+          libfreetype6-dev \
+          libjpeg-dev \
+          libpng-dev \
+          pkg-config \
+          python3 \
+          python3-pip
+
+    - name: 🔧 Build Only for n0110
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamV2' }}"
+        echo "🚀 Building Upsilon n0110 with Pi Stream v2"
+        echo "👤 Username: $USERNAME"
+        echo "🎯 Target: NumWorks n0110 only"
+
+        make clean
+        make PLATFORM=device TARGET=n0110 OMEGA_USERNAME="$USERNAME" -j$(nproc) 2>&1 | tee build.log
+
+        # Check build result
+        if [ -f "output/device/n0110/release/epsilon.bin" ]; then
+          echo "✅ Build successful!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/epsilon.bin)
+          echo "📦 Firmware size: $FILESIZE bytes"
+        else
+          echo "❌ Build failed!"
+          tail -50 build.log
+          exit 1
+        fi
+
+    - name: 📦 Create Binpack
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamV2' }}"
+        make PLATFORM=device TARGET=n0110 OMEGA_USERNAME="$USERNAME" binpack -j$(nproc)
+
+        if [ -f "output/device/n0110/release/binpack.bin" ]; then
+          echo "✅ Binpack created!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/binpack.bin)
+          echo "📦 Binpack size: $FILESIZE bytes"
+        else
+          echo "❌ Binpack failed!"
+          exit 1
+        fi
+
+    - name: 📁 Upload Firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: pistream-n0110-${{ github.run_number }}
+        path: |
+          output/device/n0110/release/epsilon.bin
+          output/device/n0110/release/binpack.bin
+          build.log
+        retention-days: 7

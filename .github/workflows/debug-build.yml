@@ -1,0 +1,111 @@
+name: 🔍 Debug Build Issue
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: 📦 Install Dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          gcc-arm-none-eabi \
+          build-essential \
+          imagemagick \
+          libfreetype6-dev \
+          libjpeg-dev \
+          libpng-dev \
+          pkg-config \
+          python3 \
+          python3-pip
+
+    - name: 🔍 Build Upsilon with Debug Info
+      run: |
+        echo "=== BUILDING WITH VERBOSE OUTPUT ==="
+        USERNAME="DebugTest"
+
+        # Build step by step with error checking
+        set -e
+
+        echo "🧹 Step 1: Clean"
+        make clean
+
+        echo "🚀 Step 2: Build firmware"
+        make OMEGA_USERNAME="$USERNAME" -j1 2>&1 | tee build.log
+
+        echo "🔍 Step 3: Check generated files"
+        echo "=== ELF FILES ==="
+        find output/ -name "*.elf" -exec ls -la {} \;
+
+        echo "=== BIN FILES ==="
+        find output/ -name "*.bin" -exec ls -la {} \;
+
+        echo "=== CHECKING SPECIFIC FILES ==="
+        if [ -f "output/device/n0110/release/epsilon.onboarding.A.elf" ]; then
+          echo "✅ epsilon.onboarding.A.elf exists"
+          ls -la output/device/n0110/release/epsilon.onboarding.A.elf
+        else
+          echo "❌ epsilon.onboarding.A.elf NOT FOUND"
+          find output/ -name "*onboarding*" -exec ls -la {} \;
+        fi
+
+        if [ -f "output/device/n0110/release/epsilon.onboarding.B.elf" ]; then
+          echo "✅ epsilon.onboarding.B.elf exists"
+          ls -la output/device/n0110/release/epsilon.onboarding.B.elf
+        else
+          echo "❌ epsilon.onboarding.B.elf NOT FOUND"
+        fi
+
+        echo "=== CHECKING BIN FILES ==="
+        if [ -f "output/device/n0110/release/epsilon.onboarding.A.bin" ]; then
+          echo "✅ epsilon.onboarding.A.bin exists"
+          ls -la output/device/n0110/release/epsilon.onboarding.A.bin
+          file output/device/n0110/release/epsilon.onboarding.A.bin
+        else
+          echo "❌ epsilon.onboarding.A.bin NOT FOUND"
+        fi
+
+        if [ -f "output/device/n0110/release/epsilon.onboarding.B.bin" ]; then
+          echo "✅ epsilon.onboarding.B.bin exists"
+          ls -la output/device/n0110/release/epsilon.onboarding.B.bin
+          file output/device/n0110/release/epsilon.onboarding.B.bin
+        else
+          echo "❌ epsilon.onboarding.B.bin NOT FOUND"
+        fi
+
+        echo "=== CHECKING BUILD SCRIPTS ==="
+        if [ -f "build/rules.mk" ]; then
+          echo "✅ build/rules.mk exists"
+          grep -n "COMBINE" build/rules.mk || echo "COMBINE rule not found in rules.mk"
+        else
+          echo "❌ build/rules.mk NOT FOUND"
+        fi
+
+        echo "=== CHECKING MAKEFILE ==="
+        grep -n "COMBINE" Makefile || echo "COMBINE not found in Makefile"
+
+        echo "=== BUILD LOG SUMMARY ==="
+        echo "Last 50 lines of build.log:"
+        tail -50 build.log
+
+        echo "=== DISK SPACE ==="
+        df -h
+
+    - name: 📁 Upload Debug Info
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: debug-build-info-${{ github.run_number }}
+        path: |
+          build.log
+          output/
+        if-no-files-found: ignore
+        retention-days: 7

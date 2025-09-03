@@ -1,0 +1,160 @@
+name: 🧮 Build Pi Stream Integrated
+
+on:
+  push:
+    branches: [ upsilon-dev, main ]
+    paths:
+      - 'apps/pistream/**'
+      - 'build/config.mak'
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Username (max 15 chars)'
+        required: false
+        default: 'PiStreamV2'
+
+jobs:
+  build-pistream-integrated:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: 📦 Install Dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y \
+          gcc-arm-none-eabi \
+          build-essential \
+          imagemagick \
+          libfreetype6-dev \
+          libjpeg-dev \
+          libpng-dev \
+          pkg-config \
+          python3 \
+          python3-pip
+
+    - name: 📋 Show Pi Stream Configuration
+      run: |
+        echo "=== BUILD CONFIGURATION ==="
+        cat build/config.mak | grep EPSILON_APPS
+        echo ""
+        echo "=== PI STREAM APP FILES ==="
+        ls -la apps/pistream/
+        echo ""
+        echo "=== READER REPLACEMENT ==="
+        if grep -q "reader" build/config.mak; then
+          echo "❌ Reader still in config!"
+        else
+          echo "✅ Reader successfully replaced by pistream"
+        fi
+
+    - name: 🔧 Verify Pi Stream Implementation
+      run: |
+        echo "=== CHECKING PI STREAM UART GPIO ==="
+        if grep -q "getRXNE" apps/pistream/pi_stream_controller.cpp; then
+          echo "✅ UART GPIO implementation found (getRXNE)"
+        else
+          echo "❌ UART GPIO implementation missing"
+          exit 1
+        fi
+
+        if grep -q "USART6" apps/pistream/pi_stream_controller.cpp; then
+          echo "✅ USART6 reference found"
+        else
+          echo "❌ USART6 reference missing"
+        fi
+
+        if grep -q "Config::Port" apps/pistream/pi_stream_controller.cpp; then
+          echo "✅ Direct register access found"
+        else
+          echo "❌ Direct register access missing"
+        fi
+
+    - name: 🏗️ Build Upsilon with Pi Stream
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamV2' }}"
+        echo "🚀 Building Upsilon with Pi Stream v2 UART GPIO"
+        echo "👤 Username: $USERNAME"
+        echo "📱 Target: n0110 (NumWorks)"
+        echo "🔧 Apps: calculation, graph, rpn, code, statistics, probability, solver, atomic, sequence, regression, pistream, settings, external"
+
+        make clean
+        make OMEGA_USERNAME="$USERNAME" -j$(nproc) 2>&1 | tee build.log
+
+        # Check build result
+        if [ -f "output/device/n0110/release/epsilon.bin" ]; then
+          echo "✅ Pi Stream v2 build successful!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/epsilon.bin)
+          echo "📦 Firmware size: $FILESIZE bytes"
+          ls -la output/device/n0110/release/epsilon.bin
+        else
+          echo "❌ Pi Stream v2 build failed!"
+          echo "📋 Build log (last 100 lines):"
+          tail -100 build.log
+          exit 1
+        fi
+
+    - name: 📦 Build Binpack for WebDFU
+      run: |
+        USERNAME="${{ github.event.inputs.username || 'PiStreamV2' }}"
+        make OMEGA_USERNAME="$USERNAME" binpack -j$(nproc)
+
+        if [ -f "output/device/n0110/release/binpack.bin" ]; then
+          echo "✅ Binpack created successfully!"
+          FILESIZE=$(stat -c%s output/device/n0110/release/binpack.bin)
+          echo "📦 Binpack size: $FILESIZE bytes"
+          ls -la output/device/n0110/release/binpack.bin
+        else
+          echo "❌ Binpack creation failed!"
+          exit 1
+        fi
+
+    - name: 📁 Upload Pi Stream v2 Firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: pistream-v2-integrated-${{ github.run_number }}
+        path: |
+          output/device/n0110/release/epsilon.bin
+          output/device/n0110/release/binpack.bin
+          build.log
+        retention-days: 7
+
+    - name: 🎉 Pi Stream v2 Integration Complete
+      run: |
+        echo "🎊 Pi Stream v2 Successfully Integrated!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "📦 Generated Files:"
+        ls -la output/device/n0110/release/*.bin
+        echo ""
+        echo "📋 File Sizes:"
+        du -h output/device/n0110/release/*.bin
+        echo ""
+        echo "🔧 Pi Stream Features:"
+        echo "  ✅ UART GPIO communication (USART6, C6/C7 pins)"
+        echo "  ✅ Non-blocking register access (getRXNE polling)"
+        echo "  ✅ LaTeX formula rendering ($$...$$ delimiters)"
+        echo "  ✅ Real-time data display"
+        echo "  ✅ 50ms polling interval"
+        echo "  ✅ 1024 char buffer"
+        echo "  ✅ n0110 compatibility"
+        echo ""
+        echo "📱 App Integration:"
+        echo "  ✅ Reader app replaced by Pi Stream"
+        echo "  ✅ Same menu position and icon"
+        echo "  ✅ Full Upsilon integration"
+        echo ""
+        echo "🔗 Next Steps:"
+        echo "  1. Download binpack.bin"
+        echo "  2. Flash via WebDFU: https://ti-planet.github.io/webdfu_numworks/n0110/"
+        echo "  3. Connect Raspberry Pi GPIO:"
+        echo "     - Pi GPIO 8 → NumWorks C7 (RX)"
+        echo "     - Pi GPIO 10 → NumWorks C6 (TX)"
+        echo "     - Pi GPIO 6 → NumWorks GND"
+        echo "  4. Test UART communication!"
+        echo ""
+        echo "🎊 ¡Pi Stream v2 listo para usar en NumWorks n0110!"
