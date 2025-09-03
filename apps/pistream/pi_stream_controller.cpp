@@ -1,6 +1,7 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
+#include <cstring>
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
@@ -140,7 +141,7 @@ void PiStreamController::pollUART() {
 
 void PiStreamController::processReceivedData(const char * data) {
   // Copiar datos al buffer principal
-  int len = strlen(m_buffer);
+  size_t len = strlen(m_buffer);
   if (len < sizeof(m_buffer) - strlen(data) - 1) {
     strcpy(m_buffer + len, data);
     strcpy(m_buffer + len + strlen(data), "\n");
@@ -162,10 +163,11 @@ void PiStreamController::processReceivedData(const char * data) {
       Poincare::Expression expr = Poincare::Expression::Parse(start + 2, nullptr);
       if (!expr.isUninitialized()) {
         // Render math using proper ExpressionView
-        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, Poincare::Preferences::ComplexFormat::Real);
+        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, 7); // 7 significant digits
         m_expressionView.setLayout(layout);
-        push(&m_expressionView);
-        return; // Don't append as text
+        // For now, just append as text since we can't push ExpressionView directly
+        appendText(start + 2);
+        return; // Don't append as text again
       }
     }
   }
