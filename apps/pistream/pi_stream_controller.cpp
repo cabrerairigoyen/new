@@ -14,29 +14,7 @@ char *strcpy(char *dest, const char *src) {
     return dest;
 }
 
-// Implementación simple de memcpy
-void *memcpy(void *dest, const void *src, size_t n) {
-    char *d = (char *)dest;
-    const char *s = (const char *)src;
-    while (n--) *d++ = *s++;
-    return dest;
-}
-
-// Implementación simple de memmove
-void *memmove(void *dest, const void *src, size_t n) {
-    char *d = (char *)dest;
-    const char *s = (const char *)src;
-    if (d < s) {
-        while (n--) *d++ = *s++;
-    } else {
-        d += n;
-        s += n;
-        while (n--) *--d = *--s;
-    }
-    return dest;
-}
-
-// Implementación simple de strstr
+// Implementación simple de strstr (no disponible en lib estándar)
 char *strstr(const char *haystack, const char *needle) {
     if (!*needle) return (char *)haystack;
 
@@ -55,21 +33,8 @@ char *strstr(const char *haystack, const char *needle) {
     return nullptr;
 }
 
-// Implementación simple de strchr
-char *strchr(const char *s, int c) {
-    while (*s) {
-        if (*s == (char)c) return (char *)s;
-        ++s;
-    }
-    return (c == '\0') ? (char *)s : nullptr;
-}
-
-// strlen ya debería estar disponible, pero por si acaso
-size_t my_strlen(const char *s) {
-    size_t len = 0;
-    while (*s++) ++len;
-    return len;
-}
+// strlen debería estar disponible en la librería estándar
+// Esta implementación es por si acaso, pero no debería usarse
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
@@ -209,8 +174,8 @@ void PiStreamController::pollUART() {
 
 void PiStreamController::processReceivedData(const char * data) {
   // Copiar datos al buffer principal
-  size_t len = my_strlen(m_buffer);
-  size_t data_len = my_strlen(data);
+  size_t len = strlen(m_buffer);
+  size_t data_len = strlen(data);
   if (len < sizeof(m_buffer) - data_len - 1) {
     strcpy(m_buffer + len, data);
     strcpy(m_buffer + len + data_len, "\n");
@@ -247,7 +212,7 @@ void PiStreamController::processReceivedData(const char * data) {
 }
 
 void PiStreamController::appendToBuffer(char c) {
-  size_t len = my_strlen(m_buffer);
+  size_t len = strlen(m_buffer);
   if (len < sizeof(m_buffer) - 1) {
     m_buffer[len] = c;
     m_buffer[len + 1] = 0;
@@ -279,7 +244,7 @@ void PiStreamController::processBuffer() {
         appendText(start);
       }
       // Shift buffer past processed part
-      memmove(m_buffer, end + 2, my_strlen(end + 2) + 1);
+      memmove(m_buffer, end + 2, strlen(end + 2) + 1);
       return;
     }
   }
@@ -288,7 +253,7 @@ void PiStreamController::processBuffer() {
   if (nl) {
     *nl = 0;
     appendText(m_buffer);
-    memmove(m_buffer, nl + 1, my_strlen(nl + 1) + 1);
+    memmove(m_buffer, nl + 1, strlen(nl + 1) + 1);
   }
 }
 
