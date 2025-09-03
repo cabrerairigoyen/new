@@ -1,7 +1,6 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
-#include <cstring>
 
 // Para n0110 necesitamos usar UART GPIO directamente
 // Configuración UART independiente sin dependencias del sistema de registros roto
