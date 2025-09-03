@@ -3,8 +3,43 @@
 #include <string.h>
 
 // Para n0110 necesitamos usar UART GPIO directamente
-// Configuración UART específica para n0110 sin depender del archivo console.h del sistema
-#include <ion/src/device/shared/regs/regs.h>
+// Configuración UART independiente sin dependencias del sistema de registros roto
+
+// Definiciones básicas para STM32F730 (usado en NumWorks n0110)
+#define USART6_BASE 0x40011400
+#define GPIOC_BASE  0x40020800
+
+// Estructura básica de registros USART (simplificada)
+typedef struct {
+    volatile uint32_t CR1;
+    volatile uint32_t CR2;
+    volatile uint32_t CR3;
+    volatile uint32_t BRR;
+    volatile uint32_t GTPR;
+    volatile uint32_t RTOR;
+    volatile uint32_t RQR;
+    volatile uint32_t ISR;
+    volatile uint32_t ICR;
+    volatile uint32_t RDR;
+    volatile uint32_t TDR;
+} USART_TypeDef;
+
+// Estructura básica de registros GPIO (simplificada)
+typedef struct {
+    volatile uint32_t MODER;
+    volatile uint32_t OTYPER;
+    volatile uint32_t OSPEEDR;
+    volatile uint32_t PUPDR;
+    volatile uint32_t IDR;
+    volatile uint32_t ODR;
+    volatile uint32_t BSRR;
+    volatile uint32_t LCKR;
+    volatile uint32_t AFR[2];
+} GPIO_TypeDef;
+
+// Punteros a periféricos
+#define USART6 ((USART_TypeDef *)USART6_BASE)
+#define GPIOC  ((GPIO_TypeDef *)GPIOC_BASE)
 
 // Configuración específica para n0110 UART GPIO
 namespace Ion {
@@ -13,10 +48,10 @@ namespace Console {
 namespace Config {
 
 // Configuración para USART6 en n0110
-constexpr static Regs::USART Port = Regs::USART(6);
-constexpr static Regs::GPIOPin RxPin = Regs::GPIOPin(Regs::GPIOC, 7);
-constexpr static Regs::GPIOPin TxPin = Regs::GPIOPin(Regs::GPIOC, 6);
-constexpr static Regs::GPIO::AFR::AlternateFunction AlternateFunction = Regs::GPIO::AFR::AlternateFunction::AF8;
+constexpr static USART_TypeDef* Port = USART6;
+constexpr static uint32_t RxPin = 7;  // PC7
+constexpr static uint32_t TxPin = 6;  // PC6
+constexpr static uint32_t AlternateFunction = 8;  // AF8
 
 // Baudrate: 115200 con fAPB2 = 96 MHz
 // USARTDIV = f/BaudRate = 96000000/115200 = 833.333
@@ -69,12 +104,9 @@ void PiStreamController::pollUART() {
   if (currentTime - m_lastPollTime < 50) return;
   m_lastPollTime = currentTime;
 
-  // Para n0110: Usar UART GPIO directamente via USART6
-  // Acceso directo a registros para comunicación no-bloqueante
-  using namespace Ion::Device::Console;
-
-  // Check if receive data register is not empty (RXNE flag)
-  bool dataAvailable = Config::Port.SR()->getRXNE();
+  // Para n0110: Usar UART GPIO directamente via configuración independiente
+  // Check if receive data register is not empty (RXNE flag en bit 5 del ISR)
+  bool dataAvailable = (Config::Port->ISR & (1 << 5)) != 0;
 
   if (dataAvailable) {
     // Read available characters (non-blocking)
@@ -82,8 +114,8 @@ void PiStreamController::pollUART() {
     int charCount = 0;
 
     // Read all available characters without blocking
-    while (Config::Port.SR()->getRXNE() && charCount < 255) {
-      char c = (char)Config::Port.RDR()->get();
+    while ((Config::Port->ISR & (1 << 5)) && charCount < 255) {
+      char c = (char)(Config::Port->RDR & 0xFF);
 
       if (c == '\n' || c == '\r') {
         if (charCount > 0) {
