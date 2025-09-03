@@ -3,8 +3,29 @@
 #include <string.h>
 
 // Para n0110 necesitamos usar UART GPIO directamente
-// Incluimos las definiciones necesarias para acceder a USART6
-#include <ion/src/device/n0110/drivers/config/console.h>
+// Configuración UART específica para n0110 sin depender del archivo console.h del sistema
+#include <ion/src/device/shared/regs/regs.h>
+
+// Configuración específica para n0110 UART GPIO
+namespace Ion {
+namespace Device {
+namespace Console {
+namespace Config {
+
+// Configuración para USART6 en n0110
+constexpr static Regs::USART Port = Regs::USART(6);
+constexpr static Regs::GPIOPin RxPin = Regs::GPIOPin(Regs::GPIOC, 7);
+constexpr static Regs::GPIOPin TxPin = Regs::GPIOPin(Regs::GPIOC, 6);
+constexpr static Regs::GPIO::AFR::AlternateFunction AlternateFunction = Regs::GPIO::AFR::AlternateFunction::AF8;
+
+// Baudrate: 115200 con fAPB2 = 96 MHz
+// USARTDIV = f/BaudRate = 96000000/115200 = 833.333
+constexpr static int USARTDIVValue = 833;
+
+}
+}
+}
+}
 
 namespace PiStream {
 
