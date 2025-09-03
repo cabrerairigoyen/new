@@ -23,10 +23,6 @@ public:
 
 private:
   App(Snapshot * snapshot);
-  int numberOfTimers() override;
-  I18n::Message message() override;
-  void * frameBuffer() override;
-
   PiStreamController m_piStreamController;
   AlternateEmptyViewController m_alternateEmptyViewController;
   StackViewController m_stackViewController;
