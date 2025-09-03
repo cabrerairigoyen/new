@@ -173,4 +173,9 @@ void PiStreamController::appendText(const char * text) {
   m_scrollableTextView.scrollToBottom();
 }
 
+View * PiStreamController::emptyView() {
+  m_textView.setText("Conecte Raspberry Pi y presione OK para iniciar Pi Stream");
+  return &m_textView;
+}
+
 }

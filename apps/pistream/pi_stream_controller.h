@@ -7,13 +7,14 @@
 #include <ion/console.h>
 #include <escher/expression_view.h>
 #include <escher/buffer_text_view.h>
+#include <escher/alternate_empty_view_delegate.h>
 #include <poincare/expression.h>
 #include <poincare/layout.h>
 #include <poincare/preferences.h>
 
 namespace PiStream {
 
-class PiStreamController : public StackViewController {
+class PiStreamController : public StackViewController, public AlternateEmptyViewDelegate {
 public:
   PiStreamController(Responder * parentResponder);
   const char * title() override { return "Pi Stream Display"; }
@@ -25,6 +26,11 @@ private:
   void appendToBuffer(char c);
   void processBuffer();
   void appendText(const char * text);
+
+  // AlternateEmptyViewDelegate methods
+  bool isEmpty() const override { return true; }
+  View * emptyView() override;
+  Responder * defaultController() override { return this; }
 
   char m_buffer[1024];
   BufferTextView m_textView;

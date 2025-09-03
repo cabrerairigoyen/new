@@ -1,6 +1,7 @@
 #include "app.h"
-#include "apps/apps_container.h"
-#include "apps/i18n.h"
+#include "pi_stream_icon.h"
+#include <apps/apps_container.h>
+#include <apps/i18n.h>
 
 namespace PiStream {
 
@@ -28,7 +29,7 @@ App::Descriptor * App::Snapshot::descriptor() {
 App::App(Snapshot * snapshot) :
   ::App(snapshot, &m_piStreamController),
   m_piStreamController(&m_stackViewController),
-  m_alternateEmptyViewController(&m_stackViewController, "Pi Stream", "No UART data"),
+  m_alternateEmptyViewController(&m_stackViewController, &m_piStreamController, &m_piStreamController),
   m_stackViewController(&m_alternateEmptyViewController, &m_piStreamController)
 {
   // Initialize the stack with the PiStream controller
