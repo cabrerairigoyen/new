@@ -24,8 +24,6 @@ public:
 private:
   App(Snapshot * snapshot);
   PiStreamController m_piStreamController;
-  AlternateEmptyViewController m_alternateEmptyViewController;
-  StackViewController m_stackViewController;
 };
 
 }

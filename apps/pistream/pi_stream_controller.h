@@ -28,6 +28,8 @@ private:
   void appendToBuffer(char c);
   void processBuffer();
   void appendText(const char * text);
+  void safeBufferShift(const char * newStart);
+  void emergencyReset();
 
   // AlternateEmptyViewDelegate methods
   bool isEmpty() const override { return true; }
@@ -39,6 +41,9 @@ private:
   ScrollableView m_scrollableTextView;
   ExpressionView m_expressionView;
   KDCoordinate m_lastPollTime;
+  KDCoordinate m_readStartTime; // For timeout protection
+  KDCoordinate m_lastProcessingTime; // For watchdog mechanism
+  int m_processingCounter; // Prevent infinite loops
 };
 
 }

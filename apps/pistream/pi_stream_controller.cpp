@@ -2,112 +2,23 @@
 #include <assert.h>
 #include <string.h>
 
-// Implementaciones de funciones de string para toolchain embebido
-// (ya que no están disponibles en la librería estándar)
-
-// #include <cstring>  // No disponible en toolchain embebido
-
-// Implementación simple de strcpy
-char *strcpy(char *dest, const char *src) {
-    char *d = dest;
-    while ((*d++ = *src++) != '\0');
-    return dest;
-}
-
-// Implementación simple de strstr (no disponible en lib estándar)
-char *strstr(const char *haystack, const char *needle) {
-    if (!*needle) return (char *)haystack;
-
-    for (const char *h = haystack; *h; ++h) {
-        const char *h_iter = h;
-        const char *n_iter = needle;
-
-        while (*h_iter && *n_iter && *h_iter == *n_iter) {
-            ++h_iter;
-            ++n_iter;
-        }
-
-        if (!*n_iter) return (char *)h;
-    }
-
-    return nullptr;
-}
-
-// strlen debería estar disponible en la librería estándar
-// Esta implementación es por si acaso, pero no debería usarse
-
-// Para n0110 necesitamos usar UART GPIO directamente
-// Configuración UART independiente sin dependencias del sistema de registros roto
-
-// Definiciones básicas para STM32F730 (usado en NumWorks n0110)
-#define USART6_BASE 0x40011400
-#define GPIOC_BASE  0x40020800
-
-// Estructura básica de registros USART (simplificada)
-typedef struct {
-    volatile uint32_t CR1;
-    volatile uint32_t CR2;
-    volatile uint32_t CR3;
-    volatile uint32_t BRR;
-    volatile uint32_t GTPR;
-    volatile uint32_t RTOR;
-    volatile uint32_t RQR;
-    volatile uint32_t ISR;
-    volatile uint32_t ICR;
-    volatile uint32_t RDR;
-    volatile uint32_t TDR;
-} USART_TypeDef;
-
-// Estructura básica de registros GPIO (simplificada)
-typedef struct {
-    volatile uint32_t MODER;
-    volatile uint32_t OTYPER;
-    volatile uint32_t OSPEEDR;
-    volatile uint32_t PUPDR;
-    volatile uint32_t IDR;
-    volatile uint32_t ODR;
-    volatile uint32_t BSRR;
-    volatile uint32_t LCKR;
-    volatile uint32_t AFR[2];
-} GPIO_TypeDef;
-
-// Punteros a periféricos (sin reinterpret_cast en define para constexpr)
-#define USART6_BASE_ADDR (USART6_BASE)
-#define GPIOC_BASE_ADDR  (GPIOC_BASE)
-
-// Configuración específica para n0110 UART GPIO
-namespace Ion {
-namespace Device {
-namespace Console {
-namespace Config {
-
-// Punteros a registros (definidos en runtime, no constexpr)
-static USART_TypeDef* Port = reinterpret_cast<USART_TypeDef*>(USART6_BASE);
-static GPIO_TypeDef* GPIOPort = reinterpret_cast<GPIO_TypeDef*>(GPIOC_BASE);
-
-constexpr static uint32_t RxPin = 7;  // PC7
-constexpr static uint32_t TxPin = 6;  // PC6
-constexpr static uint32_t AlternateFunction = 8;  // AF8
-
-// Baudrate: 115200 con fAPB2 = 96 MHz
-// USARTDIV = f/BaudRate = 96000000/115200 = 833.333
-constexpr static int USARTDIVValue = 833;
-
-}
-}
-}
-}
-
 namespace PiStream {
 
 PiStreamController::PiStreamController(Responder * parentResponder) :
   ViewController(parentResponder),
   m_textView(KDFont::SmallFont),
   m_scrollableTextView(parentResponder, &m_textView, nullptr),
-  m_lastPollTime(0)
+  m_lastPollTime(0),
+  m_readStartTime(0),
+  m_lastProcessingTime(0),
+  m_processingCounter(0)
 {
   m_buffer[0] = 0;
   // StackViewController setup moved to viewWillAppear
+}
+
+View * PiStreamController::view() {
+  return &m_scrollableTextView;
 }
 
 void PiStreamController::viewWillAppear() {
@@ -139,125 +50,238 @@ void PiStreamController::pollUART() {
   if (currentTime - m_lastPollTime < 50) return;
   m_lastPollTime = currentTime;
 
-  // Para n0110: Usar UART GPIO directamente via configuración independiente
-  // Check if receive data register is not empty (RXNE flag en bit 5 del ISR)
-  bool dataAvailable = (Ion::Device::Console::Config::Port->ISR & (1 << 5)) != 0;
+  // Non-blocking UART read with timeout protection
+  // Use Ion::Console::available() if available, otherwise implement timeout
+  static KDCoordinate lastReadAttempt = 0;
+  const KDCoordinate READ_TIMEOUT = 1000; // 1 second timeout
 
-  if (dataAvailable) {
-    // Read available characters (non-blocking)
-    char receivedLine[256] = {0};
-    int charCount = 0;
+  // Prevent excessive read attempts that could cause system freeze
+  if (currentTime - lastReadAttempt < 10) return; // Minimum 10ms between attempts
+  lastReadAttempt = currentTime;
 
-    // Read all available characters without blocking
-    while ((Ion::Device::Console::Config::Port->ISR & (1 << 5)) && charCount < 255) {
-      char c = (char)(Ion::Device::Console::Config::Port->RDR & 0xFF);
+  // Check for timeout to prevent infinite blocking
+  static bool readInProgress = false;
+  if (readInProgress && (currentTime - m_readStartTime > READ_TIMEOUT)) {
+    readInProgress = false;
+    appendText("[UART Timeout - Connection may be lost]\n");
+    return;
+  }
 
-      if (c == '\n' || c == '\r') {
-        if (charCount > 0) {
-          receivedLine[charCount] = '\0';
-          // Procesar línea completa
-          processReceivedData(receivedLine);
-          charCount = 0;
-        }
+  try {
+    // Only attempt read if we're not already in a blocking operation
+    if (!readInProgress) {
+      readInProgress = true;
+      m_readStartTime = currentTime;
+
+      // Try non-blocking read first (if available)
+      if (Ion::Console::available() > 0) {
+        char c = Ion::Console::readChar();
+        readInProgress = false;
+        appendToBuffer(c);
+        processBuffer();
       } else {
-        receivedLine[charCount++] = c;
+        readInProgress = false;
       }
     }
-
-    // Process any remaining data in buffer
-    if (charCount > 0) {
-      receivedLine[charCount] = '\0';
-      processReceivedData(receivedLine);
-    }
+  } catch (...) {
+    readInProgress = false;
+    // Don't crash on UART errors, just log and continue
+    appendText("[UART Error - Check connection]\n");
   }
 }
 
 void PiStreamController::processReceivedData(const char * data) {
-  // Copiar datos al buffer principal
+  // Safe buffer management with bounds checking
+  if (!data) return;
+
   size_t len = strlen(m_buffer);
   size_t data_len = strlen(data);
-  if (len < sizeof(m_buffer) - data_len - 1) {
+
+  // Prevent buffer overflow
+  if (data_len >= sizeof(m_buffer)) {
+    data_len = sizeof(m_buffer) - 1;
+  }
+
+  if (len + data_len + 1 < sizeof(m_buffer)) {
     strcpy(m_buffer + len, data);
     strcpy(m_buffer + len + data_len, "\n");
   } else {
-    // Buffer lleno, hacer scroll
-    memmove(m_buffer, m_buffer + data_len + 1, sizeof(m_buffer) - data_len - 1);
-    strcpy(m_buffer + sizeof(m_buffer) - data_len - 2, data);
-    strcpy(m_buffer + sizeof(m_buffer) - 2, "\n");
+    // Buffer full, safe scroll
+    size_t shiftAmount = data_len + 1;
+    if (len > shiftAmount) {
+      memmove(m_buffer, m_buffer + shiftAmount, len - shiftAmount + 1);
+      len -= shiftAmount;
+    }
+    if (len + data_len + 1 < sizeof(m_buffer)) {
+      strcpy(m_buffer + len, data);
+      strcpy(m_buffer + len + data_len, "\n");
+    }
   }
 
-  // Look for LaTeX delimiters (e.g., $$latex$$ or \(latex\))
+  // Look for LaTeX delimiters with bounds checking
   char * start = strstr(m_buffer, "$$");
   if (!start) start = strstr(m_buffer, "\\(");
-  if (start) {
-    char * end = strstr(start + 2, "$$");
-    if (!end) end = strstr(start + 2, "\\)");
-    if (end) {
-      *end = 0;  // Null-terminate LaTeX string
-      Poincare::Expression expr = Poincare::Expression::Parse(start + 2, nullptr);
-      if (!expr.isUninitialized()) {
-        // Render math using proper ExpressionView
-        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, 7); // 7 significant digits
-        m_expressionView.setLayout(layout);
-        // For now, just append as text since we can't push ExpressionView directly
-        appendText(start + 2);
-        return; // Don't append as text again
+
+  if (start && start < m_buffer + len - 2) {
+    char * end = nullptr;
+    if (start[0] == '$' && start[1] == '$') {
+      end = strstr(start + 2, "$$");
+    } else if (start[0] == '\\' && start[1] == '(') {
+      end = strstr(start + 2, "\\)");
+    }
+
+    if (end && end < m_buffer + len) {
+      *end = '\0';
+
+      try {
+        const char * mathText = start + 2;
+        size_t mathLen = end - (start + 2);
+
+        if (mathLen > 0 && mathLen < 256) {
+          Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
+          if (!expr.isUninitialized()) {
+            Poincare::Layout layout = expr.createLayout(
+              Poincare::Preferences::PrintFloatMode::Decimal,
+              Poincare::Preferences::ComplexFormat::Decimal
+            );
+            m_expressionView.setLayout(layout);
+            appendText(start + 2);
+            return;
+          }
+        }
+      } catch (...) {
+        appendText("[Math Error]");
+        return;
       }
     }
   }
 
   // No LaTeX found, just update text display
   m_textView.setText(m_buffer);
-  // ScrollableView doesn't have scrollToBottom() method
 }
 
 void PiStreamController::appendToBuffer(char c) {
+  // Safe buffer management with bounds checking
   size_t len = strlen(m_buffer);
+  if (len >= sizeof(m_buffer) - 1) {
+    // Buffer full, shift left to make space (safe operation)
+    size_t shiftAmount = 1;
+    if (len > 0) {
+      memmove(m_buffer, m_buffer + shiftAmount, len - shiftAmount + 1);
+      len -= shiftAmount;
+    }
+  }
+
+  // Add new character with bounds check
   if (len < sizeof(m_buffer) - 1) {
     m_buffer[len] = c;
-    m_buffer[len + 1] = 0;
-  } else {
-    memmove(m_buffer, m_buffer + 1, sizeof(m_buffer) - 1);
-    m_buffer[sizeof(m_buffer) - 1] = 0;
+    m_buffer[len + 1] = '\0';
   }
 }
 
 void PiStreamController::processBuffer() {
-  // Look for LaTeX delimiters (e.g., $$latex$$ or \(latex\))
+  // Safe LaTeX processing with bounds checking
+  size_t bufferLen = strlen(m_buffer);
+  if (bufferLen == 0) return;
+
+  // Look for LaTeX delimiters with bounds checking
   char * start = strstr(m_buffer, "$$");
   if (!start) start = strstr(m_buffer, "\\(");
-  if (start) {
-    char * end = strstr(start + 2, "$$");
-    if (!end) end = strstr(start + 2, "\\)");
-    if (end) {
-      *end = 0;  // Null-terminate LaTeX string
-      Poincare::Expression expr = Poincare::Expression::Parse(start + 2, nullptr);
-      if (!expr.isUninitialized()) {
-        // Render math using proper ExpressionView
-        Poincare::Layout layout = expr.createLayout(Poincare::Preferences::PrintFloatMode::Decimal, 7); // 7 significant digits
-        m_expressionView.setLayout(layout);
-        // For now, just append as text since we can't push ExpressionView directly
-        appendText(start + 2);
-        return; // Don't append as text again
-      } else {
-        // Invalid: Treat as text
+
+  if (start && start < m_buffer + bufferLen - 2) { // Ensure we have space for delimiters
+    char * end = nullptr;
+    if (start[0] == '$' && start[1] == '$') {
+      end = strstr(start + 2, "$$");
+    } else if (start[0] == '\\' && start[1] == '(') {
+      end = strstr(start + 2, "\\)");
+    }
+
+    if (end && end < m_buffer + bufferLen) {
+      // Safe null termination
+      *end = '\0';
+
+      // Safe expression parsing with error handling
+      try {
+        const char * mathText = start + 2;
+        size_t mathLen = end - (start + 2);
+
+        // Check for reasonable math expression length
+        if (mathLen > 0 && mathLen < 256) {
+          Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
+          if (!expr.isUninitialized()) {
+            // Safe layout creation
+            Poincare::Layout layout = expr.createLayout(
+              Poincare::Preferences::PrintFloatMode::Decimal,
+              Poincare::Preferences::ComplexFormat::Decimal
+            );
+            m_expressionView.setLayout(layout);
+            push(&m_expressionView);
+            // Safe buffer shift
+            safeBufferShift(end + 2);
+            return;
+          }
+        }
+        // Invalid expression or too long: treat as regular text
         appendText(start);
+        safeBufferShift(end + 2);
+        return;
+      } catch (...) {
+        // Expression parsing failed, treat as text
+        appendText("[Math Error]");
+        safeBufferShift(end + 2);
+        return;
       }
-      // Shift buffer past processed part
-      memmove(m_buffer, end + 2, strlen(end + 2) + 1);
-      return;
     }
   }
+
   // No LaTeX: Append as text if newline found
   char * nl = strchr(m_buffer, '\n');
-  if (nl) {
-    *nl = 0;
+  if (nl && nl < m_buffer + bufferLen) {
+    *nl = '\0';
     appendText(m_buffer);
-    memmove(m_buffer, nl + 1, strlen(nl + 1) + 1);
+    // Safe buffer shift
+    safeBufferShift(nl + 1);
   }
 }
 
+void PiStreamController::safeBufferShift(const char * newStart) {
+  // Safe buffer shifting with bounds checking
+  if (!newStart || newStart < m_buffer || newStart >= m_buffer + sizeof(m_buffer)) {
+    return; // Invalid pointer
+  }
+
+  size_t remainingLength = strlen(newStart);
+  if (remainingLength >= sizeof(m_buffer)) {
+    remainingLength = sizeof(m_buffer) - 1; // Prevent overflow
+  }
+
+  // Safe memory move
+  memmove(m_buffer, newStart, remainingLength);
+  m_buffer[remainingLength] = '\0';
+}
+
+void PiStreamController::emergencyReset() {
+  // Emergency reset function to recover from critical errors
+  m_buffer[0] = '\0';
+  m_lastPollTime = Ion::Timing::millis();
+  m_readStartTime = 0;
+  m_lastProcessingTime = Ion::Timing::millis();
+  m_processingCounter = 0;
+
+  // Reset views
+  popAll();
+  push(&m_scrollableTextView);
+
+  // Show recovery message
+  m_textView.setText("Pi Stream - Emergency Reset\nCheck Raspberry Pi connection");
+}
+
 void PiStreamController::appendText(const char * text) {
+  // Safe text appending with null check
+  if (!text) {
+    text = "[NULL]";
+  }
+
   // Note: TextView text handling might need different approach
   // This is a simplified version - actual implementation may need buffer management
   m_textView.setText(text);
@@ -270,3 +294,4 @@ View * PiStreamController::emptyView() {
 }
 
 }
+

@@ -14,7 +14,7 @@ I18n::Message App::Descriptor::upperName() {
 }
 
 const Image * App::Descriptor::icon() {
-  return nullptr; // Temporal: sin icono
+  return nullptr; // Temporal: sin icono para evitar crashes
 }
 
 App * App::Snapshot::unpack(Container * container) {
@@ -28,14 +28,13 @@ App::Descriptor * App::Snapshot::descriptor() {
 
 App::App(Snapshot * snapshot) :
   ::App(snapshot, &m_piStreamController),
-  m_piStreamController(&m_stackViewController),
-  m_alternateEmptyViewController(&m_stackViewController, &m_piStreamController, &m_piStreamController),
-  m_stackViewController(&m_alternateEmptyViewController, &m_piStreamController)
+  m_piStreamController(this)
 {
-  // Initialize the stack with the PiStream controller
-  m_stackViewController.push(&m_piStreamController);
+  // Safe initialization with error checking
+  if (!snapshot) {
+    // Handle null snapshot gracefully
+    m_piStreamController.viewWillAppear();
+  }
 }
-
-
 
 }

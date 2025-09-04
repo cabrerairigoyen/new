@@ -5,6 +5,12 @@ on:
     branches: [ main, upsilon-dev ]
   pull_request:
     branches: [ main, upsilon-dev ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Build version/tag'
+        required: false
+        default: 'latest'
 
 jobs:
   build:
