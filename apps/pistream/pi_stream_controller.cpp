@@ -1,6 +1,7 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
+#include <cstring>
 
 namespace PiStream {
 
@@ -67,26 +68,20 @@ void PiStreamController::pollUART() {
     return;
   }
 
-  try {
-    // Only attempt read if we're not already in a blocking operation
-    if (!readInProgress) {
-      readInProgress = true;
-      m_readStartTime = currentTime;
+  // Non-blocking UART read without exception handling (not supported)
+  if (!readInProgress) {
+    readInProgress = true;
+    m_readStartTime = currentTime;
 
-      // Try non-blocking read first (if available)
-      if (Ion::Console::available() > 0) {
-        char c = Ion::Console::readChar();
-        readInProgress = false;
-        appendToBuffer(c);
-        processBuffer();
-      } else {
-        readInProgress = false;
-      }
-    }
-  } catch (...) {
+    // Try non-blocking read - if no data available, readChar() will return immediately
+    char c = Ion::Console::readChar();
     readInProgress = false;
-    // Don't crash on UART errors, just log and continue
-    appendText("[UART Error - Check connection]\n");
+
+    // Only process if we got a valid character (not null/EOF)
+    if (c != 0 && c != -1) {
+      appendToBuffer(c);
+      processBuffer();
+    }
   }
 }
 
@@ -133,26 +128,23 @@ void PiStreamController::processReceivedData(const char * data) {
     if (end && end < m_buffer + len) {
       *end = '\0';
 
-      try {
-        const char * mathText = start + 2;
-        size_t mathLen = end - (start + 2);
+      const char * mathText = start + 2;
+      size_t mathLen = end - (start + 2);
 
-        if (mathLen > 0 && mathLen < 256) {
-          Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
-          if (!expr.isUninitialized()) {
-            Poincare::Layout layout = expr.createLayout(
-              Poincare::Preferences::PrintFloatMode::Decimal,
-              Poincare::Preferences::ComplexFormat::Decimal
-            );
-            m_expressionView.setLayout(layout);
-            appendText(start + 2);
-            return;
-          }
+      if (mathLen > 0 && mathLen < 256) {
+        Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
+        if (!expr.isUninitialized()) {
+          Poincare::Layout layout = expr.createLayout(
+            Poincare::Preferences::PrintFloatMode::Decimal,
+            Poincare::Preferences::ComplexFormat::Real
+          );
+          m_expressionView.setLayout(layout);
+          appendText(start + 2);
+          return;
         }
-      } catch (...) {
-        appendText("[Math Error]");
-        return;
       }
+      appendText("[Math Error]");
+      return;
     }
   }
 
@@ -200,37 +192,31 @@ void PiStreamController::processBuffer() {
       // Safe null termination
       *end = '\0';
 
-      // Safe expression parsing with error handling
-      try {
-        const char * mathText = start + 2;
-        size_t mathLen = end - (start + 2);
+      // Safe expression parsing without exception handling
+      const char * mathText = start + 2;
+      size_t mathLen = end - (start + 2);
 
-        // Check for reasonable math expression length
-        if (mathLen > 0 && mathLen < 256) {
-          Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
-          if (!expr.isUninitialized()) {
-            // Safe layout creation
-            Poincare::Layout layout = expr.createLayout(
-              Poincare::Preferences::PrintFloatMode::Decimal,
-              Poincare::Preferences::ComplexFormat::Decimal
-            );
-            m_expressionView.setLayout(layout);
-            push(&m_expressionView);
-            // Safe buffer shift
-            safeBufferShift(end + 2);
-            return;
-          }
+      // Check for reasonable math expression length
+      if (mathLen > 0 && mathLen < 256) {
+        Poincare::Expression expr = Poincare::Expression::Parse(mathText, nullptr);
+        if (!expr.isUninitialized()) {
+          // Safe layout creation
+          Poincare::Layout layout = expr.createLayout(
+            Poincare::Preferences::PrintFloatMode::Decimal,
+            Poincare::Preferences::ComplexFormat::Real
+          );
+          m_expressionView.setLayout(layout);
+          // For now, just append the math result as text since we can't push ExpressionView
+          appendText("[Math Result]");
+          // Safe buffer shift
+          safeBufferShift(end + 2);
+          return;
         }
-        // Invalid expression or too long: treat as regular text
-        appendText(start);
-        safeBufferShift(end + 2);
-        return;
-      } catch (...) {
-        // Expression parsing failed, treat as text
-        appendText("[Math Error]");
-        safeBufferShift(end + 2);
-        return;
       }
+      // Invalid expression or too long: treat as regular text
+      appendText(start);
+      safeBufferShift(end + 2);
+      return;
     }
   }
 
@@ -267,10 +253,6 @@ void PiStreamController::emergencyReset() {
   m_readStartTime = 0;
   m_lastProcessingTime = Ion::Timing::millis();
   m_processingCounter = 0;
-
-  // Reset views
-  popAll();
-  push(&m_scrollableTextView);
 
   // Show recovery message
   m_textView.setText("Pi Stream - Emergency Reset\nCheck Raspberry Pi connection");

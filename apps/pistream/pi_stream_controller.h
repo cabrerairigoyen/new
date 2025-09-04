@@ -18,7 +18,6 @@ class PiStreamController : public ViewController, public AlternateEmptyViewDeleg
 public:
   PiStreamController(Responder * parentResponder);
   const char * title() override { return "Pi Stream Display"; }
-  View * view() override { return &m_scrollableTextView; }
   void viewWillAppear() override;
   bool handleEvent(Ion::Events::Event event) override;
 
