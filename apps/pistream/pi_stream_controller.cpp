@@ -1,6 +1,15 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
-#include <string.h>
+
+// String functions for embedded environment
+extern "C" {
+char *strcpy(char *dest, const char *src);
+char *strstr(const char *haystack, const char *needle);
+size_t strlen(const char *s);
+char *strchr(const char *s, int c);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+}
 
 namespace PiStream {
 
@@ -135,7 +144,7 @@ void PiStreamController::processReceivedData(const char * data) {
         if (!expr.isUninitialized()) {
           Poincare::Layout layout = expr.createLayout(
             Poincare::Preferences::PrintFloatMode::Decimal,
-            Poincare::Preferences::ComplexFormat::Real
+            7  // Number of significant digits
           );
           m_expressionView.setLayout(layout);
           appendText(start + 2);
@@ -202,7 +211,7 @@ void PiStreamController::processBuffer() {
           // Safe layout creation
           Poincare::Layout layout = expr.createLayout(
             Poincare::Preferences::PrintFloatMode::Decimal,
-            Poincare::Preferences::ComplexFormat::Real
+            7  // Number of significant digits
           );
           m_expressionView.setLayout(layout);
           // For now, just append the math result as text since we can't push ExpressionView
