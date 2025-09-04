@@ -1,7 +1,6 @@
 #include "pi_stream_controller.h"
 #include <assert.h>
 #include <string.h>
-#include <cstring>
 
 namespace PiStream {
 
